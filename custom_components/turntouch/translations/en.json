@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Turn Touch",
+        "description": "Select your Turn Touch remote from the discovered devices.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Turn Touch detected",
+        "description": "Do you want to set up **{name}** ({address})?"
+      }
+    },
+    "abort": {
+      "already_configured": "This Turn Touch remote is already configured.",
+      "no_devices_found": "No Turn Touch remotes were found nearby. Make sure the device is nearby and has a charged battery."
+    }
+  }
+}
