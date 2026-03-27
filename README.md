@@ -35,11 +35,7 @@ Home Assistant integration for the [Turn Touch](https://shop.turntouch.com/) Blu
 
 ## Usage in Automations
 
-Each button creates an event entity. Use them as automation triggers:
-
-- **Platform**: `event`
-- **Entity**: e.g. `event.turn_touch_north`
-- **Event type**: `press`, `double_tap`, or `hold`
+In the automation editor, select **Device** as trigger type, pick your Turn Touch remote, and choose from the 12 available triggers (North / East / West / South × press / double_tap / hold).
 
 Example automation YAML:
 
@@ -47,20 +43,17 @@ Example automation YAML:
 automation:
   - alias: 'Turn Touch North Press → Toggle Light'
     trigger:
-      platform: event
-      event_type: state_changed
-      event_data:
-        entity_id: event.turn_touch_north
-    condition:
-      condition: template
-      value_template: "{{ trigger.to_state.attributes.event_type == 'press' }}"
+      - platform: device
+        domain: turntouch
+        device_id: !secret turn_touch_device_id
+        type: north_press
     action:
-      service: light.toggle
-      target:
-        entity_id: light.living_room
+      - service: light.toggle
+        target:
+          entity_id: light.living_room
 ```
 
-Or using the **Trigger** platform directly in the UI by selecting the event entity and filtering by event type.
+Replace `north_press` with any of the 12 trigger types: `north_press`, `north_double_tap`, `north_hold`, `east_press`, `east_double_tap`, `east_hold`, `west_press`, `west_double_tap`, `west_hold`, `south_press`, `south_double_tap`, `south_hold`.
 
 ## Button Map
 
