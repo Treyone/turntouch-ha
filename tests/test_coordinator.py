@@ -1,5 +1,6 @@
 """Tests for TurnTouchCoordinator."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from custom_components.turntouch.const import (
     BUTTON_CODES,
     CODE_OFF,
     MAX_RECONNECT_DELAY,
+    PRESS_DEBOUNCE_DELAY,
     RECONNECT_DELAY,
 )
 from custom_components.turntouch.coordinator import TurnTouchCoordinator
@@ -26,14 +28,16 @@ from .conftest import ADDRESS, DEVICE_NAME
 @pytest.mark.parametrize("code,expected_button,expected_event", [
     (code, button, event)
     for code, (button, event) in BUTTON_CODES.items()
+    if event != "press"  # press events are debounced; tested separately
 ])
-def test_button_notification_all_codes(coordinator, code, expected_button, expected_event):
-    """Every known button code fires the correct (button, event_type) callback."""
+def test_button_notification_non_press_codes_fire_immediately(
+    coordinator, code, expected_button, expected_event
+):
+    """hold and double_tap codes fire the callback immediately."""
     received = []
     coordinator.register_button_callback(lambda b, e: received.append((b, e)))
 
-    data = bytearray(code.to_bytes(2, "big"))
-    coordinator._handle_button_notification(None, data)
+    coordinator._handle_button_notification(None, bytearray(code.to_bytes(2, "big")))
 
     assert received == [(expected_button, expected_event)]
 
@@ -91,6 +95,73 @@ def test_button_callback_unregister(coordinator):
     unregister()
     coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))
 
+    assert received == []
+
+
+# ---------------------------------------------------------------------------
+# Debounce
+# ---------------------------------------------------------------------------
+
+
+async def test_press_fires_after_debounce_delay(coordinator):
+    """A press event fires after PRESS_DEBOUNCE_DELAY with no follow-up."""
+    received = []
+    coordinator.register_button_callback(lambda b, e: received.append((b, e)))
+
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # North press
+    assert received == []  # not yet
+
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
+    assert received == [("north", "press")]
+
+
+async def test_hold_cancels_pending_press(coordinator):
+    """A hold notification arriving before the debounce delay cancels the press."""
+    received = []
+    coordinator.register_button_callback(lambda b, e: received.append((b, e)))
+
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # press
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\xFF"))  # hold
+
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
+    assert received == [("north", "hold")]
+
+
+async def test_double_tap_cancels_pending_press(coordinator):
+    """A double_tap notification arriving before the debounce delay cancels the press."""
+    received = []
+    coordinator.register_button_callback(lambda b, e: received.append((b, e)))
+
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # press
+    coordinator._handle_button_notification(None, bytearray(b"\xEF\x00"))  # double_tap
+
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
+    assert received == [("north", "double_tap")]
+
+
+async def test_press_on_different_button_does_not_cancel(coordinator):
+    """A follow-up on a different button does not cancel the first button's press."""
+    received = []
+    coordinator.register_button_callback(lambda b, e: received.append((b, e)))
+
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # north press
+    coordinator._handle_button_notification(None, bytearray(b"\xFD\xFF"))  # east hold
+
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
+    # Both fire: north press (after delay) + east hold (immediately)
+    assert ("north", "press") in received
+    assert ("east", "hold") in received
+
+
+async def test_stop_cancels_pending_press(coordinator):
+    """async_stop cancels any buffered press without firing it."""
+    received = []
+    coordinator.register_button_callback(lambda b, e: received.append((b, e)))
+
+    coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # north press
+    await coordinator.async_stop()
+
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
     assert received == []
 
 

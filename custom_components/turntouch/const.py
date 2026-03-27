@@ -49,3 +49,7 @@ CODE_OFF = 0xFF00
 RECONNECT_DELAY = 5  # seconds before first reconnect attempt
 MAX_RECONNECT_DELAY = 60  # max seconds between reconnect attempts
 
+# Debounce: how long to wait after a "press" before firing it, to allow a
+# "hold" or "double_tap" follow-up notification to arrive and cancel it.
+PRESS_DEBOUNCE_DELAY = 0.4  # seconds
+

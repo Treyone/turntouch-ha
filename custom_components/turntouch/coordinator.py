@@ -18,7 +18,9 @@ from .const import (
     BUTTON_CHAR_UUID,
     BUTTON_CODES,
     CODE_OFF,
+    EVENT_PRESS,
     MAX_RECONNECT_DELAY,
+    PRESS_DEBOUNCE_DELAY,
     RECONNECT_DELAY,
 )
 
@@ -47,6 +49,10 @@ class TurnTouchCoordinator:
         self._reconnect_delay = RECONNECT_DELAY
         self._stop_event = asyncio.Event()
         self._reconnect_task: asyncio.Task | None = None
+        # Pending "press" timers keyed by button name. A press is held for
+        # PRESS_DEBOUNCE_DELAY so that a hold/double_tap arriving shortly after
+        # can cancel it before it fires.
+        self._pending_press: dict[str, asyncio.TimerHandle] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -60,6 +66,8 @@ class TurnTouchCoordinator:
     async def async_stop(self) -> None:
         """Stop the coordinator and disconnect."""
         self._stop_event.set()
+        for button in list(self._pending_press):
+            self._cancel_pending_press(button)
         if self._reconnect_task and not self._reconnect_task.done():
             self._reconnect_task.cancel()
         if self._client and self._client.is_connected:
@@ -185,6 +193,30 @@ class TurnTouchCoordinator:
             return
         button, event_type = result
         _LOGGER.debug("Button event: %s %s", button, event_type)
+
+        if event_type == EVENT_PRESS:
+            # Delay firing; a hold/double_tap arriving within PRESS_DEBOUNCE_DELAY
+            # will cancel this and fire itself instead.
+            self._cancel_pending_press(button)
+            loop = asyncio.get_event_loop()
+            self._pending_press[button] = loop.call_later(
+                PRESS_DEBOUNCE_DELAY,
+                self._fire_event,
+                button,
+                event_type,
+            )
+        else:
+            # hold or double_tap: cancel any buffered press for this button first.
+            self._cancel_pending_press(button)
+            self._fire_event(button, event_type)
+
+    def _cancel_pending_press(self, button: str) -> None:
+        handle = self._pending_press.pop(button, None)
+        if handle is not None:
+            handle.cancel()
+
+    def _fire_event(self, button: str, event_type: str) -> None:
+        self._pending_press.pop(button, None)
         for cb in list(self._button_callbacks):
             cb(button, event_type)
 
