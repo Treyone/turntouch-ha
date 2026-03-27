@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.pytest]
+# pytest-homeassistant-custom-component requires this plugin declaration
+# in conftest.py or here so HA fixtures are available.

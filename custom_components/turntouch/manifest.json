@@ -11,9 +11,6 @@
       "service_uuid": "99c31523-dc4f-41b1-bb04-4e4deb81fadd"
     }
   ],
-  "requirements": [
-    "bleak==0.22.3",
-    "bleak-retry-connector==3.6.0"
-  ],
+  "requirements": [],
   "codeowners": ["@Treyone"]
 }
