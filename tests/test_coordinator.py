@@ -73,19 +73,20 @@ def test_button_notification_short_data_ignored(coordinator):
     assert received == []
 
 
-def test_button_notification_fires_multiple_callbacks(coordinator):
-    """All registered callbacks receive the event."""
+async def test_button_notification_fires_multiple_callbacks(coordinator):
+    """All registered callbacks receive the event (tested via debounced press)."""
     results_a, results_b = [], []
     coordinator.register_button_callback(lambda b, e: results_a.append((b, e)))
     coordinator.register_button_callback(lambda b, e: results_b.append((b, e)))
 
     coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))  # North press
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
 
     assert results_a == [("north", "press")]
     assert results_b == [("north", "press")]
 
 
-def test_button_callback_unregister(coordinator):
+async def test_button_callback_unregister(coordinator):
     """Unregistering a callback stops it from receiving future events."""
     received = []
     unregister = coordinator.register_button_callback(
@@ -94,6 +95,7 @@ def test_button_callback_unregister(coordinator):
 
     unregister()
     coordinator._handle_button_notification(None, bytearray(b"\xFE\x00"))
+    await asyncio.sleep(PRESS_DEBOUNCE_DELAY + 0.05)
 
     assert received == []
 
