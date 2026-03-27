@@ -9,6 +9,9 @@
   "bluetooth": [
     {
       "service_uuid": "99c31523-dc4f-41b1-bb04-4e4deb81fadd"
+    },
+    {
+      "local_name": "Turn Touch Remote"
     }
   ],
   "requirements": [],

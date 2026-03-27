@@ -86,14 +86,19 @@ class TurnTouchConfigFlow(ConfigFlow, domain=DOMAIN):
                 data={CONF_ADDRESS: address, CONF_NAME: name},
             )
 
-        # Discover nearby Turn Touch devices
+        # Discover nearby Turn Touch devices.
+        # Match by service UUID *or* by device name — the Turn Touch may not
+        # include the service UUID in its advertisement packets (only in the
+        # GATT table after connecting), so name matching is the reliable path.
         self._discovered_devices = {}
         for service_info in async_discovered_service_info(self.hass):
-            if SERVICE_UUID.lower() in [
+            name = service_info.name or ""
+            has_service_uuid = SERVICE_UUID.lower() in [
                 uuid.lower() for uuid in service_info.service_uuids
-            ]:
+            ]
+            if has_service_uuid or "turn touch" in name.lower():
                 self._discovered_devices[service_info.address] = (
-                    service_info.name or service_info.address
+                    name or service_info.address
                 )
 
         if not self._discovered_devices:
